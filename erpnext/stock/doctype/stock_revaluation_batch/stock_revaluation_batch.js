@@ -3,10 +3,11 @@
 
 frappe.ui.form.on("Stock Revaluation Batch", {
 	onload(frm) {
-		if (!frm.is_new() || frm.doc.from_date) return;
-		const month_start = frappe.datetime.month_start();
-		frm.set_value("from_date", frappe.datetime.add_months(month_start, -1));
-		frm.set_value("to_date", frappe.datetime.add_days(month_start, -1));
+		if (!frm.is_new()) return;
+		if (!frm.doc.company) frm.set_value("company", frappe.defaults.get_user_default("Company"));
+		if (!frm.doc.upto_posting_date) {
+			frm.set_value("upto_posting_date", frappe.datetime.add_days(frappe.datetime.month_start(), -1));
+		}
 	},
 
 	refresh(frm) {
