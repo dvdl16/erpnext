@@ -7,7 +7,7 @@ from frappe.model.document import Document
 from frappe.utils import cstr
 from frappe.utils.user import is_website_user
 
-__version__ = "16.54.0"
+__version__ = "16.54.1000"
 
 
 def get_default_company(user=None):

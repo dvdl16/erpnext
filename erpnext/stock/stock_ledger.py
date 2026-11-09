@@ -1963,13 +1963,14 @@ class update_entries_after:
 
 	def get_moving_average_values(self, sle):
 		actual_qty = flt(sle.actual_qty)
-		new_stock_qty = flt(self.wh_data.qty_after_transaction) + actual_qty
+		pool_qty, self.wh_data.valuation_rate = self.get_valuation_pool(sle)
+		new_stock_qty = pool_qty + actual_qty
 		if new_stock_qty >= 0:
 			if actual_qty > 0:
-				if flt(self.wh_data.qty_after_transaction) <= 0:
+				if pool_qty <= 0:
 					self.wh_data.valuation_rate = sle.incoming_rate
 				else:
-					new_stock_value = (self.wh_data.qty_after_transaction * self.wh_data.valuation_rate) + (
+					new_stock_value = (pool_qty * self.wh_data.valuation_rate) + (
 						actual_qty * sle.incoming_rate
 					)
 
@@ -1977,7 +1978,7 @@ class update_entries_after:
 
 			elif sle.outgoing_rate:
 				if new_stock_qty:
-					new_stock_value = (self.wh_data.qty_after_transaction * self.wh_data.valuation_rate) + (
+					new_stock_value = (pool_qty * self.wh_data.valuation_rate) + (
 						actual_qty * sle.outgoing_rate
 					)
 
@@ -1985,7 +1986,7 @@ class update_entries_after:
 				else:
 					self.wh_data.valuation_rate = sle.outgoing_rate
 		else:
-			if flt(self.wh_data.qty_after_transaction) >= 0 and sle.outgoing_rate:
+			if pool_qty >= 0 and sle.outgoing_rate:
 				self.wh_data.valuation_rate = sle.outgoing_rate
 
 			if not self.wh_data.valuation_rate and actual_qty > 0:
@@ -1999,6 +2000,29 @@ class update_entries_after:
 				)
 				if not allow_zero_valuation_rate:
 					self.wh_data.valuation_rate = self.get_fallback_rate(sle)
+
+	def get_valuation_pool(self, sle):
+		"""Quantity and rate the moving average builds on: this warehouse, or every
+		warehouse of the company when Site-wide Item Valuation is enabled."""
+		if not frappe.get_single_value("Stock Settings", "site_wide_item_valuation"):
+			return flt(self.wh_data.qty_after_transaction), flt(self.wh_data.valuation_rate)
+
+		table = frappe.qb.DocType("Stock Ledger Entry")
+		prior_entries = frappe.qb.from_(table).where(
+			(table.item_code == sle.item_code)
+			& (table.company == sle.company)
+			& (table.is_cancelled == 0)
+			& get_prior_ledger_condition(table, sle.posting_datetime, sle.creation)
+		)
+		pool_qty = prior_entries.select(Sum(table.actual_qty)).run()[0][0]
+		last_rate = (
+			prior_entries.select(table.valuation_rate)
+			.orderby(table.posting_datetime, order=Order.desc)
+			.orderby(table.creation, order=Order.desc)
+			.limit(1)
+			.run()
+		)
+		return flt(pool_qty), flt(last_rate[0][0]) if last_rate else 0.0
 
 	def update_queue_values(self, sle):
 		incoming_rate = flt(sle.incoming_rate)
@@ -2529,14 +2553,19 @@ def get_valuation_rate(
 
 		return batch_obj.get_incoming_rate()
 
-	# Get valuation rate from last sle for the same item and warehouse
+	# Get valuation rate from last sle for the same item and warehouse, or company under site-wide valuation
 	sle_entry = frappe.qb.DocType("Stock Ledger Entry")
+	scope = (
+		sle_entry.company == company
+		if frappe.get_single_value("Stock Settings", "site_wide_item_valuation")
+		else sle_entry.warehouse == warehouse
+	)
 	last_sle_query = (
 		frappe.qb.from_(sle_entry)
 		.select(sle_entry.valuation_rate)
 		.where(
 			(sle_entry.item_code == item_code)
-			& (sle_entry.warehouse == warehouse)
+			& scope
 			& (sle_entry.valuation_rate >= 0)
 			& (sle_entry.is_cancelled == 0)
 		)

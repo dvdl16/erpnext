@@ -67,3 +67,47 @@ class TestRepostQueue(ERPNextTestSuite):
 		)
 		self.assertTrue(set(target_sles) <= set(fetched))
 		self.assertEqual(len(fetched), len(set(fetched)))
+
+
+class TestSiteWideItemValuation(ERPNextTestSuite):
+	@ERPNextTestSuite.change_settings("Stock Settings", {"site_wide_item_valuation": 1})
+	def test_moving_average_pools_rate_across_warehouses(self):
+		from erpnext.stock.doctype.item.test_item import make_item
+		from erpnext.stock.doctype.stock_entry.stock_entry_utils import make_stock_entry
+
+		item = make_item(
+			"_Test Site Wide Valuation Item", {"is_stock_item": 1, "valuation_method": "Moving Average"}
+		).name
+		first, second = "_Test Warehouse - _TC", "_Test Warehouse 1 - _TC"
+		make_stock_entry(item_code=item, target=first, qty=10, basic_rate=100)
+		receipt = make_stock_entry(item_code=item, target=second, qty=10, basic_rate=200)
+		issue = make_stock_entry(item_code=item, source=first, qty=5)
+
+		def sle(voucher):
+			return frappe.db.get_value(
+				"Stock Ledger Entry",
+				{"voucher_no": voucher.name},
+				["valuation_rate", "stock_value"],
+				as_dict=True,
+			)
+
+		self.assertEqual(sle(receipt).valuation_rate, 150)
+		self.assertEqual(sle(receipt).stock_value, 1500)
+		self.assertEqual(sle(issue).valuation_rate, 150)
+		self.assertEqual(sle(issue).stock_value, 750)
+		issue.reload()
+		self.assertEqual(issue.items[0].basic_rate, 150)
+
+	def test_moving_average_stays_per_warehouse_by_default(self):
+		from erpnext.stock.doctype.item.test_item import make_item
+		from erpnext.stock.doctype.stock_entry.stock_entry_utils import make_stock_entry
+
+		item = make_item(
+			"_Test Per Warehouse Valuation Item", {"is_stock_item": 1, "valuation_method": "Moving Average"}
+		).name
+		make_stock_entry(item_code=item, target="_Test Warehouse - _TC", qty=10, basic_rate=100)
+		receipt = make_stock_entry(item_code=item, target="_Test Warehouse 1 - _TC", qty=10, basic_rate=200)
+
+		self.assertEqual(
+			frappe.db.get_value("Stock Ledger Entry", {"voucher_no": receipt.name}, "valuation_rate"), 200
+		)

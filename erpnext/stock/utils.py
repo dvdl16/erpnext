@@ -462,7 +462,10 @@ def _get_incoming_rate(args: dict | str, raise_error_if_no_rate: bool = True, fa
 					if previous_stock_queue
 					else None
 				)
-		elif valuation_method == "Moving Average":
+		elif valuation_method == "Moving Average" and not frappe.get_single_value(
+			"Stock Settings", "site_wide_item_valuation"
+		):
+			# the pooled rate lives on the company's latest entry, found by get_valuation_rate below
 			in_rate = previous_sle.get("valuation_rate")
 
 	if in_rate is None:

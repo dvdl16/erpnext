@@ -14,6 +14,7 @@
   "column_break_4",
   "item_group",
   "valuation_method",
+  "site_wide_item_valuation",
   "price_list_defaults_section",
   "auto_insert_price_list_rate_if_missing",
   "update_existing_price_list_rate",
@@ -121,6 +122,13 @@
    "fieldtype": "Select",
    "label": "Default Valuation Method",
    "options": "FIFO\nMoving Average\nLIFO"
+  },
+  {
+   "default": "0",
+   "description": "Moving Average rate is pooled across all warehouses of a company instead of per warehouse. A warehouse picks up the pooled rate on its next stock transaction.",
+   "fieldname": "site_wide_item_valuation",
+   "fieldtype": "Check",
+   "label": "Site-wide Item Valuation"
   },
   {
    "description": "The percentage you are allowed to receive or deliver more against the quantity ordered. For example, if you have ordered 100 units, and your Allowance is 10%, then you are allowed to receive 110 units.",
