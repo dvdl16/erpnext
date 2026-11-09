@@ -78,10 +78,37 @@ class TestSiteWideItemValuation(ERPNextTestSuite):
 		item = make_item(
 			"_Test Site Wide Valuation Item", {"is_stock_item": 1, "valuation_method": "Moving Average"}
 		).name
+		self.assert_pooled_rate(item)
+
+	@ERPNextTestSuite.change_settings("Stock Settings", {"site_wide_item_valuation": 1})
+	def test_batch_item_pools_rate_across_warehouses(self):
+		from erpnext.stock.doctype.item.test_item import make_item
+
+		item = make_item(
+			"_Test Site Wide Valuation Batch Item",
+			{
+				"is_stock_item": 1,
+				"valuation_method": "Moving Average",
+				"has_batch_no": 1,
+				"create_new_batch": 1,
+				"batch_number_series": "SWVB-.#####",
+			},
+		).name
+		self.assert_pooled_rate(item)
+
+	def assert_pooled_rate(self, item):
+		from erpnext.stock.doctype.stock_entry.stock_entry_utils import make_stock_entry
+		from erpnext.stock.doctype.serial_and_batch_bundle.test_serial_and_batch_bundle import (
+			get_batch_from_bundle,
+		)
+
 		first, second = "_Test Warehouse - _TC", "_Test Warehouse 1 - _TC"
-		make_stock_entry(item_code=item, target=first, qty=10, basic_rate=100)
+		opening = make_stock_entry(item_code=item, target=first, qty=10, basic_rate=100)
 		receipt = make_stock_entry(item_code=item, target=second, qty=10, basic_rate=200)
-		issue = make_stock_entry(item_code=item, source=first, qty=5)
+		bundle = opening.items[0].serial_and_batch_bundle
+		issue = make_stock_entry(
+			item_code=item, source=first, qty=5, batch_no=get_batch_from_bundle(bundle) if bundle else None
+		)
 
 		def sle(voucher):
 			return frappe.db.get_value(

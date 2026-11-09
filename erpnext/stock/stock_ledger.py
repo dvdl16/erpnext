@@ -2508,7 +2508,13 @@ def get_valuation_rate(
 	if not company:
 		company = frappe.get_cached_value("Warehouse", warehouse, "company")
 
-	if warehouse and batch_no and frappe.db.get_value("Batch", batch_no, "use_batchwise_valuation"):
+	skip_serial_batch_valuation = is_serial_no_wise_valuation_disabled(item_code)
+	if (
+		warehouse
+		and batch_no
+		and not skip_serial_batch_valuation
+		and frappe.db.get_value("Batch", batch_no, "use_batchwise_valuation")
+	):
 		table = frappe.qb.DocType("Stock Ledger Entry")
 		query = (
 			frappe.qb.from_(table)
@@ -2532,7 +2538,7 @@ def get_valuation_rate(
 			return flt(last_valuation_rate[0][0])
 
 	# Get moving average rate of a specific batch number
-	if warehouse and serial_and_batch_bundle:
+	if warehouse and serial_and_batch_bundle and not skip_serial_batch_valuation:
 		bundle = frappe.get_value(
 			"Serial and Batch Bundle",
 			serial_and_batch_bundle,

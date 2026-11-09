@@ -382,9 +382,7 @@ def _get_incoming_rate(args: dict | str, raise_error_if_no_rate: bool = True, fa
 		as_dict=1,
 	)
 
-	skip_serial_batch_valuation = bool(
-		item_details and item_details.has_serial_no and not item_details.use_serial_no_wise_valuation
-	)
+	skip_serial_batch_valuation = is_serial_no_wise_valuation_disabled(args.get("item_code"))
 
 	if isinstance(args, dict):
 		args = frappe._dict(args)
@@ -516,11 +514,21 @@ def get_avg_purchase_rate(serial_nos):
 
 
 def is_serial_no_wise_valuation_disabled(item_code) -> bool:
+	"""Also true for every batch or serial item under Site-wide Item Valuation: the moving
+	average runs over the whole company, so no batch or serial no carries a rate of its own."""
 	item_details = frappe.get_cached_value(
-		"Item", item_code, ["has_serial_no", "use_serial_no_wise_valuation"], as_dict=1
+		"Item", item_code, ["has_serial_no", "has_batch_no", "use_serial_no_wise_valuation"], as_dict=1
 	)
+	if not item_details:
+		return False
+	if item_details.has_serial_no and not item_details.use_serial_no_wise_valuation:
+		return True
 
-	return bool(item_details and item_details.has_serial_no and not item_details.use_serial_no_wise_valuation)
+	return bool(
+		(item_details.has_serial_no or item_details.has_batch_no)
+		and get_valuation_method(item_code) == "Moving Average"
+		and frappe.get_single_value("Stock Settings", "site_wide_item_valuation")
+	)
 
 
 @frappe.request_cache
