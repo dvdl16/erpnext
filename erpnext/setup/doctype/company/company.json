@@ -1001,7 +1001,7 @@
    "fieldname": "valuation_method",
    "fieldtype": "Select",
    "label": "Default Stock Valuation Method",
-   "options": "FIFO\nMoving Average\nLIFO",
+   "options": "FIFO\nMoving Average\nLIFO\nPeriodic Average",
    "reqd": 1
   },
   {

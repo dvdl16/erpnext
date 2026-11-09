@@ -10,7 +10,7 @@ import frappe
 from frappe import _
 from frappe.query_builder import Tuple
 from frappe.query_builder.functions import Coalesce, Count
-from frappe.utils import add_days, cint, date_diff, flt, getdate
+from frappe.utils import add_days, cint, date_diff, flt, get_datetime, getdate
 from frappe.utils.nestedset import get_descendants_of
 from pypika import Order
 from pypika.analytics import RowNumber
@@ -19,6 +19,7 @@ import erpnext
 from erpnext.stock.doctype.inventory_dimension.inventory_dimension import get_inventory_dimensions
 from erpnext.stock.doctype.stock_closing_entry.stock_closing_entry import StockClosing
 from erpnext.stock.doctype.warehouse.warehouse import apply_warehouse_filter
+from erpnext.stock.stock_ledger import get_item_cost
 from erpnext.stock.report.stock_ageing.stock_ageing import (
 	FIFOSlots,
 	get_average_age,
@@ -454,7 +455,10 @@ class StockBalanceReport:
 				report_data.update(self.get_row_stock_ageing_data(report_data, item_wise_fifo_queue))
 
 			report_data.update(
-				{"reserved_stock": sre_details.get((report_data.item_code, report_data.warehouse), 0.0)}
+				{
+					"reserved_stock": sre_details.get((report_data.item_code, report_data.warehouse), 0.0),
+					"item_cost": self.get_item_cost(report_data.item_code, report_data.company),
+				}
 			)
 
 			if (
@@ -466,6 +470,10 @@ class StockBalanceReport:
 				continue
 
 			self.data.append(report_data)
+
+	def get_item_cost(self, item_code, company):
+		"""Frozen Periodic Average rate at the end of the period, None for other items."""
+		return get_item_cost(item_code, company, get_datetime(f"{self.filters.to_date} 23:59:59"))
 
 	def get_sre_reserved_qty_details(self) -> dict:
 		from erpnext.stock.doctype.stock_reservation_entry.stock_reservation_entry import (
@@ -728,6 +736,16 @@ class StockBalanceReport:
 				{
 					"label": _("Valuation Rate"),
 					"fieldname": "val_rate",
+					"fieldtype": self.filters.valuation_field_type or "Currency",
+					"width": 90,
+					"convertible": "rate",
+					"options": "Company:company:default_currency"
+					if self.filters.valuation_field_type == "Currency"
+					else None,
+				},
+				{
+					"label": _("Item Cost"),
+					"fieldname": "item_cost",
 					"fieldtype": self.filters.valuation_field_type or "Currency",
 					"width": 90,
 					"convertible": "rate",

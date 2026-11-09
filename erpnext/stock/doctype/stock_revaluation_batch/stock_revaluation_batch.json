@@ -2,19 +2,26 @@
  "actions": [],
  "autoname": "format:SRB-{YYYY}-{#####}",
  "creation": "2026-11-09 12:00:00",
- "description": "Previews and posts the Repost Item Valuation entries held back by Disable Automatic Revaluation Posting.",
+ "description": "Month end valuation run for Periodic Average items: posts the held back reposts, then prices each item's period issues and closing stock at the period's weighted average and freezes that rate.",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
   "company",
   "column_break_dates",
+  "from_date",
   "upto_posting_date",
+  "posting_date",
+  "posting_time",
+  "rates_section",
+  "rates",
   "items_section",
   "items",
   "totals_section",
-  "total_current_stock_value",
+  "total_cogs_adjustment",
+  "total_stock_adjustment",
   "column_break_totals",
+  "total_current_stock_value",
   "total_revalued_stock_value",
   "total_value_difference",
   "amended_from"
@@ -33,16 +40,49 @@
    "fieldtype": "Column Break"
   },
   {
+   "fieldname": "from_date",
+   "fieldtype": "Date",
+   "label": "Period Start",
+   "reqd": 1
+  },
+  {
    "fieldname": "upto_posting_date",
    "fieldtype": "Date",
    "in_list_view": 1,
-   "label": "Valuation Transactions Posted Up To",
+   "label": "Period End",
    "reqd": 1
+  },
+  {
+   "fieldname": "posting_date",
+   "fieldtype": "Date",
+   "label": "Posting Date",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "posting_time",
+   "fieldtype": "Time",
+   "label": "Posting Time",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "rates_section",
+   "fieldtype": "Section Break",
+   "label": "Period Valuation",
+   "description": "Weighted average of each Periodic Average item over the period: opening stock at the current rate plus receipts. Posting reprices the period's issues and closing stock at it and freezes it for the next period."
+  },
+  {
+   "fieldname": "rates",
+   "fieldtype": "Table",
+   "label": "Rates",
+   "options": "Stock Revaluation Batch Rate"
   },
   {
    "fieldname": "items_section",
    "fieldtype": "Section Break",
-   "label": "Queued Reposts"
+   "label": "Queued Reposts",
+   "description": "Reposts queued by backdated or cancelled vouchers of Periodic Average items, held until this batch posts them."
   },
   {
    "fieldname": "items",
@@ -56,14 +96,27 @@
    "label": "Totals"
   },
   {
-   "fieldname": "total_current_stock_value",
+   "fieldname": "total_cogs_adjustment",
    "fieldtype": "Currency",
-   "label": "Total Posted Stock Value",
+   "label": "Total COGS Adjustment",
    "read_only": 1
+  },
+  {
+   "fieldname": "total_stock_adjustment",
+   "fieldtype": "Currency",
+   "label": "Total Stock Adjustment",
+   "read_only": 1,
+   "bold": 1
   },
   {
    "fieldname": "column_break_totals",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "total_current_stock_value",
+   "fieldtype": "Currency",
+   "label": "Total Posted Stock Value",
+   "read_only": 1
   },
   {
    "fieldname": "total_revalued_stock_value",
@@ -90,7 +143,7 @@
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-11-09 16:31:57.038686",
+ "modified": "2026-11-09 23:00:00.000000",
  "modified_by": "Administrator",
  "module": "Stock",
  "name": "Stock Revaluation Batch",

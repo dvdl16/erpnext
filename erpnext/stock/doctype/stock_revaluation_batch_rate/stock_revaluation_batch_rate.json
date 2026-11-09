@@ -1,0 +1,118 @@
+{
+ "actions": [],
+ "creation": "2026-11-09 23:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "item_code",
+  "current_rate",
+  "period_rate",
+  "column_break_qty",
+  "opening_qty",
+  "opening_value",
+  "receipt_qty",
+  "receipt_value",
+  "issue_qty",
+  "closing_qty",
+  "column_break_adjustments",
+  "cogs_adjustment",
+  "stock_adjustment"
+ ],
+ "fields": [
+  {
+   "fieldname": "item_code",
+   "fieldtype": "Link",
+   "label": "Item Code",
+   "read_only": 1,
+   "options": "Item",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "current_rate",
+   "fieldtype": "Currency",
+   "label": "Current Rate",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "period_rate",
+   "fieldtype": "Currency",
+   "label": "Period Rate",
+   "read_only": 1,
+   "bold": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "column_break_qty",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "opening_qty",
+   "fieldtype": "Float",
+   "label": "Opening Qty",
+   "read_only": 1
+  },
+  {
+   "fieldname": "opening_value",
+   "fieldtype": "Currency",
+   "label": "Opening Value",
+   "read_only": 1
+  },
+  {
+   "fieldname": "receipt_qty",
+   "fieldtype": "Float",
+   "label": "Receipt Qty",
+   "read_only": 1
+  },
+  {
+   "fieldname": "receipt_value",
+   "fieldtype": "Currency",
+   "label": "Receipt Value",
+   "read_only": 1
+  },
+  {
+   "fieldname": "issue_qty",
+   "fieldtype": "Float",
+   "label": "Issue Qty",
+   "read_only": 1
+  },
+  {
+   "fieldname": "closing_qty",
+   "fieldtype": "Float",
+   "label": "Closing Qty",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "column_break_adjustments",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "cogs_adjustment",
+   "fieldtype": "Currency",
+   "label": "COGS Adjustment",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "stock_adjustment",
+   "fieldtype": "Currency",
+   "label": "Stock Adjustment",
+   "read_only": 1,
+   "in_list_view": 1
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-11-09 23:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Stock",
+ "name": "Stock Revaluation Batch Rate",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

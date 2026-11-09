@@ -397,7 +397,7 @@
    "fieldname": "valuation_method",
    "fieldtype": "Select",
    "label": "Valuation Method",
-   "options": "\nFIFO\nMoving Average\nLIFO",
+   "options": "\nFIFO\nMoving Average\nLIFO\nPeriodic Average",
    "description": "Serialized items are valued at Moving Average once stock transactions exist and Serial No Wise Valuation is disabled."
   },
   {

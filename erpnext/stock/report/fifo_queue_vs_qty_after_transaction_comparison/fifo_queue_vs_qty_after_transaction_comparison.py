@@ -114,7 +114,9 @@ def find_first_bad_queue(sles):
 
 
 def keeps_fifo_queue(sle, valuation_method):
-	if valuation_method != "Moving Average" and is_serial_no_wise_valuation_disabled(sle.item_code):
+	if valuation_method != "Moving Average" and is_serial_no_wise_valuation_disabled(
+		sle.item_code, sle.company
+	):
 		return True
 
 	return maintains_fifo_queue(sle, valuation_method)

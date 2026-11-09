@@ -28,6 +28,9 @@ class PendingRepostingError(frappe.ValidationError):
 	pass
 
 
+PERIODIC_AVERAGE = "Periodic Average"
+
+
 def get_stock_value_from_bin(warehouse=None, item_code=None):
 	values = {}
 	conditions = ""
@@ -363,7 +366,7 @@ def get_incoming_rate(args: dict | str, raise_error_if_no_rate: bool = True, fal
 
 def _get_incoming_rate(args: dict | str, raise_error_if_no_rate: bool = True, fallbacks: bool = True):
 	"""Get Incoming Rate based on valuation method"""
-	from erpnext.stock.stock_ledger import get_previous_sle, get_valuation_rate
+	from erpnext.stock.stock_ledger import get_frozen_valuation_rate, get_previous_sle, get_valuation_rate
 
 	if isinstance(args, str):
 		args = json.loads(args)
@@ -382,7 +385,9 @@ def _get_incoming_rate(args: dict | str, raise_error_if_no_rate: bool = True, fa
 		as_dict=1,
 	)
 
-	skip_serial_batch_valuation = is_serial_no_wise_valuation_disabled(args.get("item_code"))
+	skip_serial_batch_valuation = is_serial_no_wise_valuation_disabled(
+		args.get("item_code"), args.get("company")
+	)
 
 	if isinstance(args, dict):
 		args = frappe._dict(args)
@@ -460,11 +465,13 @@ def _get_incoming_rate(args: dict | str, raise_error_if_no_rate: bool = True, fa
 					if previous_stock_queue
 					else None
 				)
-		elif valuation_method == "Moving Average" and not frappe.get_single_value(
-			"Stock Settings", "site_wide_item_valuation"
-		):
-			# the pooled rate lives on the company's latest entry, found by get_valuation_rate below
-			in_rate = previous_sle.get("valuation_rate")
+		elif valuation_method == "Moving Average":
+			if is_periodic_average(args.get("item_code"), args.get("company")):
+				in_rate = get_frozen_valuation_rate(
+					args.get("item_code"), args.get("company"), posting_datetime
+				)
+			else:
+				in_rate = previous_sle.get("valuation_rate")
 
 	if in_rate is None:
 		voucher_no = args.get("voucher_no") or args.get("name")
@@ -513,9 +520,9 @@ def get_avg_purchase_rate(serial_nos):
 	)
 
 
-def is_serial_no_wise_valuation_disabled(item_code) -> bool:
-	"""Also true for every batch or serial item under Site-wide Item Valuation: the moving
-	average runs over the whole company, so no batch or serial no carries a rate of its own."""
+def is_serial_no_wise_valuation_disabled(item_code, company=None) -> bool:
+	"""Also true for every batch or serial item on Periodic Average: the company carries one
+	rate, so no batch or serial no has a rate of its own."""
 	item_details = frappe.get_cached_value(
 		"Item", item_code, ["has_serial_no", "has_batch_no", "use_serial_no_wise_valuation"], as_dict=1
 	)
@@ -525,21 +532,27 @@ def is_serial_no_wise_valuation_disabled(item_code) -> bool:
 		return True
 
 	return bool(
-		(item_details.has_serial_no or item_details.has_batch_no) and is_site_wide_valuation(item_code)
+		(item_details.has_serial_no or item_details.has_batch_no) and is_periodic_average(item_code, company)
 	)
 
 
-def is_site_wide_valuation(item_code, company=None) -> bool:
-	"""Whether the item's moving average pools every warehouse of the company."""
-	return bool(
-		frappe.get_single_value("Stock Settings", "site_wide_item_valuation")
-		and get_valuation_method(item_code, company) == "Moving Average"
-	)
+def is_periodic_average(item_code, company=None) -> bool:
+	"""Whether the item is costed per company: issues leave every warehouse at one frozen rate,
+	and a Stock Revaluation Batch sets the period's weighted average at month end."""
+	return get_configured_valuation_method(item_code, company) == PERIODIC_AVERAGE
 
 
 @frappe.request_cache
 def get_valuation_method(item_code, company=None):
-	"""get valuation method from item or default"""
+	"""Method the ledger engine runs. Periodic Average receives stock like Moving Average and
+	differs only in what issues cost, which is_periodic_average handles."""
+	method = get_configured_valuation_method(item_code, company)
+	return "Moving Average" if method == PERIODIC_AVERAGE else method
+
+
+@frappe.request_cache
+def get_configured_valuation_method(item_code, company=None):
+	"""Valuation method as set on the item, else the company, else Stock Settings."""
 	val_method = frappe.get_cached_value("Item", item_code, "valuation_method")
 	if not val_method:
 		val_method = (
@@ -555,7 +568,8 @@ def clear_valuation_method_cache():
 	if not cache:
 		return
 
-	cache.pop(getattr(get_valuation_method, "__wrapped__", get_valuation_method), None)
+	for function in (get_valuation_method, get_configured_valuation_method):
+		cache.pop(getattr(function, "__wrapped__", function), None)
 
 
 def get_fifo_rate(previous_stock_queue, qty):

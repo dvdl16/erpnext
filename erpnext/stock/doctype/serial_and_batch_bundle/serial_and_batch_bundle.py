@@ -412,7 +412,7 @@ class SerialandBatchBundle(Document):
 		if valuation_details := self.get_valuation_rate_for_return_entry(return_against):
 			from erpnext.stock.utils import get_valuation_method, is_serial_no_wise_valuation_disabled
 
-			skip_rate_update = is_serial_no_wise_valuation_disabled(self.item_code)
+			skip_rate_update = is_serial_no_wise_valuation_disabled(self.item_code, self.company)
 			valuation_method = get_valuation_method(self.item_code, self.company)
 
 			# An outward return must go out at the batch's current average rate for a
@@ -711,7 +711,7 @@ class SerialandBatchBundle(Document):
 	def set_incoming_rate_for_outward_transaction(self, row=None, save=False, allow_negative_stock=False):
 		from erpnext.stock.utils import get_valuation_method, is_serial_no_wise_valuation_disabled
 
-		if is_serial_no_wise_valuation_disabled(self.item_code):
+		if is_serial_no_wise_valuation_disabled(self.item_code, self.company):
 			return
 
 		sle = self.get_sle_for_outward_transaction()
@@ -1232,7 +1232,7 @@ class SerialandBatchBundle(Document):
 		if (
 			self.voucher_type != "Stock Entry"
 			or not self.voucher_detail_no
-			or is_serial_no_wise_valuation_disabled(self.item_code)
+			or is_serial_no_wise_valuation_disabled(self.item_code, self.company)
 		):
 			return {}
 

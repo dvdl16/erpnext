@@ -31,7 +31,7 @@ from erpnext.stock.stock_ledger import (
 	is_transfer_stock_entry,
 	repost_future_sle,
 )
-from erpnext.stock.utils import get_combine_datetime
+from erpnext.stock.utils import get_combine_datetime, is_periodic_average
 from erpnext.utilities import clear_logs_with_references
 
 RecoverableErrors = (JobTimeoutException, QueryDeadlockError, QueryTimeoutError)
@@ -867,14 +867,19 @@ def _execute_reposting_entry(name):
 
 
 def get_repost_item_valuation_entries(limit=None):
-	if frappe.get_single_value("Stock Settings", "disable_automatic_revaluation_posting"):
-		return []
-
 	doctype = frappe.qb.DocType("Repost Item Valuation")
 
 	query = (
 		frappe.qb.from_(doctype)
-		.select(doctype.name, doctype.based_on, doctype.item_code, doctype.repost_only_accounting_ledgers)
+		.select(
+			doctype.name,
+			doctype.based_on,
+			doctype.item_code,
+			doctype.company,
+			doctype.voucher_type,
+			doctype.voucher_no,
+			doctype.repost_only_accounting_ledgers,
+		)
 		.where(
 			(doctype.status.isin(["Queued", "In Progress"]))
 			& (doctype.creation <= now())
@@ -885,10 +890,18 @@ def get_repost_item_valuation_entries(limit=None):
 		.orderby(doctype.status, order=frappe.qb.asc)
 	)
 
-	if limit:
-		query = query.limit(cint(limit))
+	entries = [entry for entry in query.run(as_dict=True) if not is_held_for_periodic_valuation(entry)]
+	return entries[: cint(limit)] if limit else entries
 
-	return query.run(as_dict=True)
+
+def is_held_for_periodic_valuation(repost):
+	"""Reposts of Periodic Average items wait for the Stock Revaluation Batch at month end."""
+	if repost.based_on == "Item and Warehouse":
+		return is_periodic_average(repost.item_code, repost.company)
+	return any(
+		is_periodic_average(row.item_code, repost.company)
+		for row in get_items_to_be_repost(repost.voucher_type, repost.voucher_no)
+	)
 
 
 def in_configured_timeslot(repost_settings=None, current_time=None):

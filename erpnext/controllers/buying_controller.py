@@ -1060,7 +1060,7 @@ class BuyingController(SubcontractingController):
 
 					if self.is_return:
 						outgoing_rate = 0.0
-						if not is_serial_no_wise_valuation_disabled(d.item_code):
+						if not is_serial_no_wise_valuation_disabled(d.item_code, self.company):
 							outgoing_rate = get_rate_for_return(
 								self.doctype, self.name, d.item_code, self.return_against, item_row=d
 							)

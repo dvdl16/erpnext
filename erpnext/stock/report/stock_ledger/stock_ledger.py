@@ -16,6 +16,7 @@ from pypika.analytics import RowNumber
 
 from erpnext.stock.doctype.inventory_dimension.inventory_dimension import get_inventory_dimensions
 from erpnext.stock.doctype.warehouse.warehouse import apply_warehouse_filter
+from erpnext.stock.stock_ledger import get_item_cost
 from erpnext.stock.utils import (
 	is_reposting_item_valuation_in_progress,
 	update_included_uom_in_report,
@@ -81,10 +82,12 @@ def execute(filters=None):
 	set_opening_row_for_inv_dimension(inv_dimension_wise_dict, inv_dimension_key, inv_dimension_opening)
 
 	item_wh_wise_prev_sle = {}
+	item_costs = {}
 	for sle in sl_entries:
 		item_detail = item_details[sle.item_code]
 
 		sle.update(item_detail)
+		sle.item_cost = get_cached_item_cost(sle, item_costs)
 		bundle_info = bundle_details.get(sle.serial_and_batch_bundle)
 		if bundle_info and not filters.get("segregate_serial_batch_bundle"):
 			set_bundle_qty_and_value(sle, bundle_info)
@@ -148,6 +151,14 @@ def execute(filters=None):
 
 	update_included_uom_in_report(columns, data, include_uom, conversion_factors)
 	return columns, data
+
+
+def get_cached_item_cost(sle, item_costs):
+	"""The frozen rate changes by date only, so one lookup per item and day serves the whole report."""
+	key = (sle.item_code, sle.company, get_datetime(sle.date).date())
+	if key not in item_costs:
+		item_costs[key] = get_item_cost(sle.item_code, sle.company, sle.date, sle.creation)
+	return item_costs[key]
 
 
 def set_bundle_qty_and_value(sle, bundle_info):
@@ -396,6 +407,16 @@ def get_columns(filters):
 				"fieldname": "in_out_rate",
 				"fieldtype": filters.valuation_field_type,
 				"width": 140,
+				"options": "Company:company:default_currency"
+				if filters.valuation_field_type == "Currency"
+				else None,
+				"convertible": "rate",
+			},
+			{
+				"label": _("Item Cost"),
+				"fieldname": "item_cost",
+				"fieldtype": filters.valuation_field_type,
+				"width": 110,
 				"options": "Company:company:default_currency"
 				if filters.valuation_field_type == "Currency"
 				else None,

@@ -69,128 +69,71 @@ class TestRepostQueue(ERPNextTestSuite):
 		self.assertEqual(len(fetched), len(set(fetched)))
 
 
-COMPANY = "_Test Company with perpetual inventory"
-
-
-class TestSiteWideItemValuation(ERPNextTestSuite):
-	@ERPNextTestSuite.change_settings("Stock Settings", {"site_wide_item_valuation": 1})
-	def test_moving_average_pools_rate_across_warehouses(self):
+class TestPeriodicAverageValuation(ERPNextTestSuite):
+	def test_issue_costs_at_frozen_rate(self):
 		from erpnext.stock.doctype.item.test_item import make_item
-		from erpnext.stock.doctype.stock_entry.stock_entry_utils import make_stock_entry
 
 		item = make_item(
-			"_Test Site Wide Valuation Item", {"is_stock_item": 1, "valuation_method": "Moving Average"}
+			"_Test Frozen Rate Item", {"is_stock_item": 1, "valuation_method": "Periodic Average"}
 		).name
-		self.assert_pooled_rate(item)
+		self.assert_frozen_rate(item)
 
-	@ERPNextTestSuite.change_settings("Stock Settings", {"site_wide_item_valuation": 1})
-	def test_batch_item_pools_rate_across_warehouses(self):
+	def test_batch_item_costs_at_frozen_rate(self):
 		from erpnext.stock.doctype.item.test_item import make_item
 
 		item = make_item(
-			"_Test Site Wide Valuation Batch Item",
+			"_Test Frozen Rate Batch Item",
 			{
 				"is_stock_item": 1,
-				"valuation_method": "Moving Average",
+				"valuation_method": "Periodic Average",
 				"has_batch_no": 1,
 				"create_new_batch": 1,
 				"batch_number_series": "SWVB-.#####",
 			},
 		).name
-		self.assert_pooled_rate(item)
+		self.assert_frozen_rate(item)
 
-	def assert_pooled_rate(self, item):
-		from erpnext.stock.doctype.stock_entry.stock_entry_utils import make_stock_entry
+	def assert_frozen_rate(self, item):
 		from erpnext.stock.doctype.serial_and_batch_bundle.test_serial_and_batch_bundle import (
 			get_batch_from_bundle,
 		)
+		from erpnext.stock.doctype.stock_entry.stock_entry_utils import make_stock_entry
 
-		first, second = "Stores - TCP1", "Finished Goods - TCP1"
-		opening = make_stock_entry(item_code=item, target=first, qty=10, basic_rate=100, company=COMPANY)
-		receipt = make_stock_entry(item_code=item, target=second, qty=10, basic_rate=200, company=COMPANY)
-		bundle = opening.items[0].serial_and_batch_bundle
+		freeze_rate(item, "_Test Company", 100)
+		first, second = "_Test Warehouse - _TC", "_Test Warehouse 1 - _TC"
+		make_stock_entry(item_code=item, target=first, qty=10, basic_rate=100)
+		receipt = make_stock_entry(item_code=item, target=second, qty=10, basic_rate=200)
+		bundle = receipt.items[0].serial_and_batch_bundle
 		issue = make_stock_entry(
-			item_code=item,
-			source=first,
-			qty=5,
-			company=COMPANY,
-			batch_no=get_batch_from_bundle(bundle) if bundle else None,
+			item_code=item, source=second, qty=5, batch_no=get_batch_from_bundle(bundle) if bundle else None
 		)
 
-		def sle(voucher):
-			return frappe.db.get_value(
-				"Stock Ledger Entry",
-				{"voucher_no": voucher.name},
-				["valuation_rate", "stock_value"],
-				as_dict=True,
-			)
-
-		self.assertEqual(sle(receipt).valuation_rate, 150)
-		self.assertEqual(sle(receipt).stock_value, 1500)
-		self.assertEqual(sle(issue).valuation_rate, 150)
-		self.assertEqual(sle(issue).stock_value, 750)
+		# the receipt is stored at what it cost; no other warehouse moves
+		self.assertEqual(get_sle(receipt).valuation_rate, 200)
+		self.assertEqual(get_sle(receipt).stock_value, 2000)
+		# the issue leaves at the frozen rate, not at what this warehouse paid
+		self.assertEqual(get_sle(issue).stock_value_difference, -500)
+		self.assertEqual(get_sle(issue).stock_value, 1500)
 		issue.reload()
-		self.assertEqual(issue.items[0].basic_rate, 150)
+		self.assertEqual(issue.items[0].basic_rate, 100)
+		# both reports show the frozen rate beside the warehouse rates
+		self.assertEqual({row.item_cost for row in get_report_rows("stock_ledger", item)}, {100})
+		self.assertEqual({row.item_cost for row in get_report_rows("stock_balance", item)}, {100})
 
-		# the receipt also revalues the idle warehouse, on the ledger, the Bin and the GL
-		revaluation = frappe.db.get_value(
-			"Stock Ledger Entry",
-			{"voucher_no": receipt.name, "warehouse": first},
-			["actual_qty", "qty_after_transaction", "valuation_rate", "stock_value_difference"],
-			as_dict=True,
-		)
-		self.assertEqual(revaluation.actual_qty, 0)
-		self.assertEqual(revaluation.qty_after_transaction, 10)
-		self.assertEqual(revaluation.valuation_rate, 150)
-		self.assertEqual(revaluation.stock_value_difference, 500)
-		self.assertEqual(
-			frappe.db.get_value("Bin", {"item_code": item, "warehouse": first}, "valuation_rate"), 150
-		)
-		self.assertEqual(get_stock_account_debit(receipt), 2000)
-
-	@ERPNextTestSuite.change_settings("Stock Settings", {"site_wide_item_valuation": 1})
-	def test_purchase_receipt_books_revaluation_without_divisional_loss(self):
+	def test_company_average_until_first_batch(self):
 		from erpnext.stock.doctype.item.test_item import make_item
-		from erpnext.stock.doctype.purchase_receipt.test_purchase_receipt import make_purchase_receipt
 		from erpnext.stock.doctype.stock_entry.stock_entry_utils import make_stock_entry
 
 		item = make_item(
-			"_Test Site Wide Valuation PR Item", {"is_stock_item": 1, "valuation_method": "Moving Average"}
+			"_Test Unfrozen Rate Item", {"is_stock_item": 1, "valuation_method": "Periodic Average"}
 		).name
-		make_stock_entry(item_code=item, target="Stores - TCP1", qty=10, basic_rate=100, company=COMPANY)
-		receipt = make_purchase_receipt(
-			item_code=item,
-			company=COMPANY,
-			warehouse="Finished Goods - TCP1",
-			supplier_warehouse="Work In Progress - TCP1",
-			qty=10,
-			rate=200,
-		)
+		make_stock_entry(item_code=item, target="_Test Warehouse - _TC", qty=10, basic_rate=100)
+		make_stock_entry(item_code=item, target="_Test Warehouse 1 - _TC", qty=10, basic_rate=200)
+		issue = make_stock_entry(item_code=item, source="_Test Warehouse - _TC", qty=5)
 
-		self.assertEqual(get_stock_account_debit(receipt), 2000)
-		loss_account = frappe.get_cached_value("Company", receipt.company, "default_expense_account")
-		self.assertFalse(
-			frappe.db.exists(
-				"GL Entry", {"voucher_no": receipt.name, "account": loss_account, "is_cancelled": 0}
-			)
-		)
+		self.assertEqual(get_sle(issue).stock_value_difference, -750)
 
-
-def get_stock_account_debit(voucher):
-	from frappe.query_builder.functions import Sum
-
-	gl, account = frappe.qb.DocType("GL Entry"), frappe.qb.DocType("Account")
-	debit = (
-		frappe.qb.from_(gl)
-		.join(account)
-		.on(gl.account == account.name)
-		.select(Sum(gl.debit) - Sum(gl.credit))
-		.where((gl.voucher_no == voucher.name) & (gl.is_cancelled == 0) & (account.account_type == "Stock"))
-		.run()
-	)
-	return debit[0][0]
-
-	def test_moving_average_stays_per_warehouse_by_default(self):
+	def test_moving_average_stays_per_warehouse(self):
 		from erpnext.stock.doctype.item.test_item import make_item
 		from erpnext.stock.doctype.stock_entry.stock_entry_utils import make_stock_entry
 
@@ -199,7 +142,44 @@ def get_stock_account_debit(voucher):
 		).name
 		make_stock_entry(item_code=item, target="_Test Warehouse - _TC", qty=10, basic_rate=100)
 		receipt = make_stock_entry(item_code=item, target="_Test Warehouse 1 - _TC", qty=10, basic_rate=200)
+		issue = make_stock_entry(item_code=item, source="_Test Warehouse 1 - _TC", qty=5)
 
-		self.assertEqual(
-			frappe.db.get_value("Stock Ledger Entry", {"voucher_no": receipt.name}, "valuation_rate"), 200
-		)
+		self.assertEqual(get_sle(receipt).valuation_rate, 200)
+		self.assertEqual(get_sle(issue).stock_value_difference, -1000)
+
+
+def get_report_rows(report, item):
+	from frappe.utils import nowdate
+
+	execute = frappe.get_attr(f"erpnext.stock.report.{report}.{report}.execute")
+	filters = frappe._dict(
+		{
+			"company": "_Test Company",
+			"from_date": nowdate(),
+			"to_date": nowdate(),
+			"item_code": [item],
+			"valuation_field_type": "Currency",
+		}
+	)
+	return [row for row in execute(filters)[1] if row.get("item_code") == item]
+
+
+def freeze_rate(item, company, rate):
+	frappe.get_doc(
+		{
+			"doctype": "Item Valuation Rate",
+			"item_code": item,
+			"company": company,
+			"valid_from": "2000-01-01",
+			"valuation_rate": rate,
+		}
+	).insert()
+
+
+def get_sle(voucher):
+	return frappe.db.get_value(
+		"Stock Ledger Entry",
+		{"voucher_no": voucher.name},
+		["valuation_rate", "stock_value", "stock_value_difference"],
+		as_dict=True,
+	)

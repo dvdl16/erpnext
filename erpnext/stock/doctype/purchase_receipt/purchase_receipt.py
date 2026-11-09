@@ -850,10 +850,6 @@ class PurchaseReceipt(BuyingController):
 						continue
 
 				make_item_asset_inward_gl_entry(d, stock_value_diff, stock_asset_account_name)
-				for revaluation in get_revaluation_entries(self.name, d.name):
-					account = get_warehouse_account(frappe.get_cached_doc("Warehouse", revaluation.warehouse))
-					make_item_asset_inward_gl_entry(d, revaluation.stock_value_difference, account)
-					stock_value_diff += revaluation.stock_value_difference
 				outgoing_amount = make_stock_received_but_not_billed_entry(d)
 				make_landed_cost_gl_entries(d)
 				make_expenses_added_to_stock_entries(d)
@@ -1195,21 +1191,6 @@ class PurchaseReceipt(BuyingController):
 			.where(sle_table.voucher_type == "Purchase Receipt")
 			.where(sle_table.warehouse.notin(rejected_warehouses))
 		).run()
-
-
-def get_revaluation_entries(voucher_no, voucher_detail_no):
-	"""Zero qty entries that moved other warehouses to the pooled rate under Site-wide Item Valuation."""
-	return frappe.get_all(
-		"Stock Ledger Entry",
-		filters={
-			"voucher_type": "Purchase Receipt",
-			"voucher_no": voucher_no,
-			"voucher_detail_no": voucher_detail_no,
-			"actual_qty": 0,
-			"is_cancelled": 0,
-		},
-		fields=["warehouse", "stock_value_difference"],
-	)
 
 
 def get_stock_value_difference(voucher_no, voucher_detail_no, warehouse):
