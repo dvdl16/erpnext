@@ -867,6 +867,9 @@ def _execute_reposting_entry(name):
 
 
 def get_repost_item_valuation_entries(limit=None):
+	if frappe.get_single_value("Stock Settings", "disable_automatic_revaluation_posting"):
+		return []
+
 	doctype = frappe.qb.DocType("Repost Item Valuation")
 
 	query = (

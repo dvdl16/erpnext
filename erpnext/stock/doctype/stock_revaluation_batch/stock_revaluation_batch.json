@@ -1,0 +1,163 @@
+{
+ "actions": [],
+ "creation": "2026-11-09 12:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "links": [],
+ "modified": "2026-11-09 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Stock",
+ "owner": "Administrator",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "autoname": "format:SRB-{YYYY}-{#####}",
+ "is_submittable": 1,
+ "name": "Stock Revaluation Batch",
+ "description": "Posts a period's stock revaluations in one batch of Repost Item Valuation entries.",
+ "field_order": [
+  "company",
+  "from_date",
+  "to_date",
+  "column_break_settings",
+  "allow_negative_stock",
+  "allow_zero_rate",
+  "items_section",
+  "items",
+  "totals_section",
+  "total_current_stock_value",
+  "column_break_totals",
+  "total_revalued_stock_value",
+  "total_value_difference",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1,
+   "default": ":Company"
+  },
+  {
+   "fieldname": "from_date",
+   "fieldtype": "Date",
+   "label": "From Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "to_date",
+   "fieldtype": "Date",
+   "label": "To Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_settings",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "allow_negative_stock",
+   "fieldtype": "Check",
+   "label": "Allow Negative Stock"
+  },
+  {
+   "default": "0",
+   "fieldname": "allow_zero_rate",
+   "fieldtype": "Check",
+   "label": "Allow Zero Valuation Rate"
+  },
+  {
+   "fieldname": "items_section",
+   "fieldtype": "Section Break",
+   "label": "Items to Repost",
+   "description": "One row per item and warehouse with stock movement in the period. Each is reposted from its first movement in the period. Save fetches the rows, Preview Revaluation reposts them in a dry run."
+  },
+  {
+   "fieldname": "items",
+   "fieldtype": "Table",
+   "label": "Items",
+   "options": "Stock Revaluation Batch Item"
+  },
+  {
+   "fieldname": "totals_section",
+   "fieldtype": "Section Break",
+   "label": "Totals"
+  },
+  {
+   "fieldname": "total_current_stock_value",
+   "fieldtype": "Currency",
+   "label": "Total Current Stock Value",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_totals",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "total_revalued_stock_value",
+   "fieldtype": "Currency",
+   "label": "Total Revalued Stock Value",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_value_difference",
+   "fieldtype": "Currency",
+   "label": "Total Value Difference",
+   "read_only": 1,
+   "bold": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Stock Revaluation Batch",
+   "print_hide": 1,
+   "read_only": 1
+  }
+ ],
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 1,
+   "submit": 1,
+   "write": 1,
+   "role": "System Manager"
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 1,
+   "submit": 1,
+   "write": 1,
+   "role": "Stock Manager"
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 1,
+   "submit": 1,
+   "write": 1,
+   "role": "Stock User"
+  }
+ ]
+}

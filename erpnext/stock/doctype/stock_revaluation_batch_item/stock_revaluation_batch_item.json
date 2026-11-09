@@ -1,0 +1,88 @@
+{
+ "actions": [],
+ "creation": "2026-11-09 12:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "links": [],
+ "modified": "2026-11-09 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Stock",
+ "owner": "Administrator",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "istable": 1,
+ "name": "Stock Revaluation Batch Item",
+ "permissions": [],
+ "field_order": [
+  "item_code",
+  "warehouse",
+  "posting_date",
+  "posting_time",
+  "current_stock_value",
+  "revalued_stock_value",
+  "value_difference",
+  "repost_item_valuation"
+ ],
+ "fields": [
+  {
+   "fieldname": "item_code",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Item Code",
+   "options": "Item",
+   "reqd": 1
+  },
+  {
+   "fieldname": "warehouse",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Warehouse",
+   "options": "Warehouse",
+   "reqd": 1
+  },
+  {
+   "fieldname": "posting_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Repost From Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "posting_time",
+   "fieldtype": "Time",
+   "label": "Repost From Time",
+   "reqd": 1
+  },
+  {
+   "fieldname": "current_stock_value",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Current Stock Value",
+   "read_only": 1
+  },
+  {
+   "fieldname": "revalued_stock_value",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Revalued Stock Value",
+   "read_only": 1
+  },
+  {
+   "fieldname": "value_difference",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Value Difference",
+   "read_only": 1
+  },
+  {
+   "fieldname": "repost_item_valuation",
+   "fieldtype": "Link",
+   "label": "Repost Item Valuation",
+   "no_copy": 1,
+   "options": "Repost Item Valuation",
+   "read_only": 1
+  }
+ ]
+}

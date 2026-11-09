@@ -15,6 +15,7 @@
   "item_group",
   "valuation_method",
   "site_wide_item_valuation",
+  "disable_automatic_revaluation_posting",
   "price_list_defaults_section",
   "auto_insert_price_list_rate_if_missing",
   "update_existing_price_list_rate",
@@ -129,6 +130,13 @@
    "fieldname": "site_wide_item_valuation",
    "fieldtype": "Check",
    "label": "Site-wide Item Valuation"
+  },
+  {
+   "default": "0",
+   "description": "Repost Item Valuation entries queued by backdated transactions, landed costs and reconciliations stay Queued. Post them from a Stock Revaluation Batch.",
+   "fieldname": "disable_automatic_revaluation_posting",
+   "fieldtype": "Check",
+   "label": "Disable Automatic Revaluation Posting"
   },
   {
    "description": "The percentage you are allowed to receive or deliver more against the quantity ordered. For example, if you have ordered 100 units, and your Allowance is 10%, then you are allowed to receive 110 units.",
