@@ -304,8 +304,8 @@ class StockLedgerEntry(Document):
 		if frappe.in_test and frappe.flags.ignore_serial_batch_bundle_validation:
 			return
 
-		# a write-off moves no serial no or batch; the reset of an Adjustment Entry does
-		if self.is_adjustment_entry and not self.serial_and_batch_bundle:
+		# a write-off or a revaluation moves no serial no or batch; the reset of an Adjustment Entry does
+		if (self.is_adjustment_entry or self.get("is_revaluation")) and not self.serial_and_batch_bundle:
 			return
 
 		if not self.get("via_landed_cost_voucher"):
@@ -324,7 +324,11 @@ class StockLedgerEntry(Document):
 			if not self.get(k):
 				frappe.throw(_("{0} is required").format(_(self.meta.get_label(k))))
 
-		if self.voucher_type != "Stock Reconciliation" and not self.actual_qty:
+		if (
+			self.voucher_type != "Stock Reconciliation"
+			and not self.actual_qty
+			and not self.get("is_revaluation")
+		):
 			frappe.throw(_("Actual Qty is mandatory"))
 
 	def validate_serial_batch_no_bundle(self):
@@ -410,7 +414,7 @@ class StockLedgerEntry(Document):
 		authorized_role = frappe.get_single_value(
 			"Stock Settings", "role_allowed_to_create_edit_back_dated_transactions"
 		)
-		if authorized_role:
+		if authorized_role and not self.get("is_revaluation"):
 			authorized_users = get_users(authorized_role)
 			if authorized_users and frappe.session.user not in authorized_users:
 				last_transaction_time = frappe.db.sql(

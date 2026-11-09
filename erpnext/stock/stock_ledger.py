@@ -47,6 +47,7 @@ from erpnext.stock.utils import (
 	get_serial_nos_data,
 	get_valuation_method,
 	is_serial_no_wise_valuation_disabled,
+	is_site_wide_valuation,
 )
 from erpnext.stock.valuation import FIFOValuation, LIFOValuation, round_off_if_near_zero
 
@@ -221,6 +222,8 @@ def make_sl_entries(
 					args, allow_negative_stock, via_landed_cost_voucher, cancelled=cancelled
 				)
 				update_bin_qty(bin_name, args)
+				if not cancelled:
+					make_revaluation_entries(sle_doc, allow_negative_stock, via_landed_cost_voucher)
 			else:
 				frappe.msgprint(
 					_("Item {0} ignored since it is not a stock item").format(args.get("item_code"))
@@ -254,7 +257,11 @@ def get_pending_dimension_checks():
 
 
 def repost_current_voucher(args, allow_negative_stock=False, via_landed_cost_voucher=False, cancelled=False):
-	if args.get("actual_qty") or args.get("voucher_type") == "Stock Reconciliation":
+	if (
+		args.get("actual_qty")
+		or args.get("voucher_type") == "Stock Reconciliation"
+		or args.get("is_revaluation")
+	):
 		if not args.get("posting_date"):
 			args["posting_date"] = nowdate()
 
@@ -347,6 +354,74 @@ def make_entry(
 		sle.db_set("creation", args.get("creation_time"))
 
 	return sle
+
+
+REVALUATION_FIELDS = (
+	"item_code",
+	"posting_date",
+	"posting_time",
+	"voucher_type",
+	"voucher_no",
+	"voucher_detail_no",
+	"company",
+	"stock_uom",
+	"project",
+)
+
+
+def make_revaluation_entries(trigger, allow_negative_stock=False, via_landed_cost_voucher=False):
+	"""Under Site-wide Item Valuation one entry moves the rate of every warehouse. Each other
+	warehouse holding the item gets a zero qty entry on the same voucher, so its ledger, its
+	Bin and the GL carry the pooled rate at once instead of on its next movement."""
+	if not is_site_wide_valuation(trigger.item_code, trigger.company):
+		return
+
+	rate = frappe.db.get_value("Stock Ledger Entry", trigger.name, "valuation_rate")
+	for warehouse in get_stale_warehouses(trigger, rate):
+		args = {field: trigger.get(field) for field in REVALUATION_FIELDS}
+		args.update({"warehouse": warehouse, "actual_qty": 0, "is_revaluation": 1})
+		entry = make_entry(args, allow_negative_stock, via_landed_cost_voucher)
+		args = entry.as_dict()
+		args.update({"posting_datetime": entry.posting_datetime, "is_revaluation": 1})
+		repost_current_voucher(args, allow_negative_stock, via_landed_cost_voucher)
+
+
+def get_stale_warehouses(trigger, rate):
+	"""Other warehouses of the company that hold the item at a different rate when the trigger posts."""
+	table = frappe.qb.DocType("Stock Ledger Entry")
+	warehouses = frappe.get_all(
+		"Stock Ledger Entry",
+		filters={
+			"item_code": trigger.item_code,
+			"company": trigger.company,
+			"warehouse": ("!=", trigger.warehouse),
+			"is_cancelled": 0,
+		},
+		pluck="warehouse",
+		distinct=True,
+	)
+	precision = frappe.get_precision("Stock Ledger Entry", "valuation_rate")
+	for warehouse in warehouses:
+		last = (
+			frappe.qb.from_(table)
+			.select(table.qty_after_transaction, table.valuation_rate)
+			.where(
+				(table.item_code == trigger.item_code)
+				& (table.warehouse == warehouse)
+				& (table.is_cancelled == 0)
+				& get_prior_ledger_condition(table, trigger.posting_datetime, trigger.creation)
+			)
+			.orderby(table.posting_datetime, order=Order.desc)
+			.orderby(table.creation, order=Order.desc)
+			.limit(1)
+			.run(as_dict=True)
+		)
+		if (
+			last
+			and flt(last[0].qty_after_transaction)
+			and flt(last[0].valuation_rate, precision) != flt(rate, precision)
+		):
+			yield warehouse
 
 
 def repost_future_sle(

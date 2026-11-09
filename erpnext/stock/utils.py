@@ -525,9 +525,15 @@ def is_serial_no_wise_valuation_disabled(item_code) -> bool:
 		return True
 
 	return bool(
-		(item_details.has_serial_no or item_details.has_batch_no)
-		and get_valuation_method(item_code) == "Moving Average"
-		and frappe.get_single_value("Stock Settings", "site_wide_item_valuation")
+		(item_details.has_serial_no or item_details.has_batch_no) and is_site_wide_valuation(item_code)
+	)
+
+
+def is_site_wide_valuation(item_code, company=None) -> bool:
+	"""Whether the item's moving average pools every warehouse of the company."""
+	return bool(
+		frappe.get_single_value("Stock Settings", "site_wide_item_valuation")
+		and get_valuation_method(item_code, company) == "Moving Average"
 	)
 
 
